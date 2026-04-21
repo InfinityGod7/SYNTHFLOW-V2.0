@@ -1,10 +1,9 @@
-name: Build Electron App
+name: Build & Release
 
 on:
   push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+    branches: [master]
+    tags: ["v*.*.*"]
   workflow_dispatch:
 
 jobs:
@@ -12,29 +11,36 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout Code
+      - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'npm'
+          cache: "npm"
 
-      - name: Install Dependencies
-        run: npm install
+      - name: Install dependencies
+        run: npm ci
 
-      - name: Build and Distribute
+      - name: Build Vite + package with electron-builder
         run: npm run dist
         env:
-          # If you want to sign the app or publish to GitHub Releases, 
-          # you would add GH_TOKEN here later.
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Upload Build Artifact
+      - name: Upload .exe as workflow artifact
         uses: actions/upload-artifact@v4
         with:
           name: SynthFlow-Windows-Portable
           path: release/*.exe
           if-no-files-found: error
-          retention-days: 7
+
+      # Creates a GitHub Release and attaches the .exe when you push a tag like v1.0.0
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*.exe
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
